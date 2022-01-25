@@ -1,4 +1,6 @@
-# ContractFuzzer
+# DirectedContractFuzzer
+
+This project is a fork from [ContractFuzzer](https://github.com/gongbell/ContractFuzzer) project.
 
 The Ethereum Smart Contract Fuzzer for Security Vulnerability Detection
 
