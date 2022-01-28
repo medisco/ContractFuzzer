@@ -1,4 +1,4 @@
-FROM golang:1.10.2-alpine3.7
+FROM golang:1.13.15-alpine3.12
 
 LABEL maintainer="LIUYE, BUAA <liuye5@live.com>"
 
@@ -20,7 +20,6 @@ ADD benchmark.py benchmark.py
 ADD benchmark.json benchmark.json
 
 RUN (cd contract_fuzzer \
-    && source ./gopath.sh \
     && cd ./src/ContractFuzzer/contractfuzzer \
     && go build -o contract_fuzzer) \
   && cp contract_fuzzer/src/ContractFuzzer/contractfuzzer/contract_fuzzer /usr/local/bin \

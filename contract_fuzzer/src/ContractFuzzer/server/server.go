@@ -2,7 +2,6 @@
 package server
 
 import (
-	fuzz "ContractFuzzer/fuzz"
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	fuzz "github.com/medisco/ContractFuzzer/src/ContractFuzzer/fuzz"
 )
 
 var (

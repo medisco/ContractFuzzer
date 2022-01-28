@@ -1,7 +1,6 @@
 package fuzz
 
 import (
-	abi_gen "ContractFuzzer/abi"
 	"bufio"
 	"fmt"
 	"io"
@@ -11,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/medisco/ContractFuzzer/src/ContractFuzzer/abi_gen"
 )
 
 var (
