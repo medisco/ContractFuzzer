@@ -1,0 +1,8 @@
+{
+    "delegatecall_dangerous": "delegate_danger",
+	"exception_disorder": "exception_disorder",
+	"gasless_send": "gasless_send",
+	"numberdependency": "number_dependency",
+    "reentrancy": "reentrancy_danger",
+	"timedependency": "time_dependency"
+}
