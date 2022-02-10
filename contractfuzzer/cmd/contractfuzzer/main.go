@@ -32,11 +32,16 @@ var (
 
 func main() {
 	flag.Parse()
+
 	if err := fuzz.Init(*contract_list, *addr_seeds, *int_seeds, *uint_seeds, *string_seeds, *byte_seeds, *bytes_seeds, *fuzz_scale, *input_scale, *fstart, *fend, *addr_map, *abi_sigs_dir, *bin_sigs_dir, *listen_port, *tester_port); err != nil {
 		log.Printf("%s\n", err)
 		return
 	}
-	go fuzz.Start(*abi_dir, *out_dir)
-	go server.Start(*addr_map, *reporter)
+
+	s := new(server.DefaultServer).Init(*abi_dir, *out_dir, *addr_map, *reporter)
+	err := s.Run()
+	if err != nil {
+		panic(err)
+	}
 	<-fuzz.G_finish
 }

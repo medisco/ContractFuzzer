@@ -22,30 +22,30 @@ services:
       - "geth"
     environment:
       - GETH_HOST=geth
-  fuzzer:
-    container_name: fuzzer
-    image: contractfuzzer/fuzzer
-    build:
-      context: ./contractfuzzer
-    ports:
-      - "8888:8888"
-    depends_on:
-      - "tester"
-    environment:
-      - TESTER_HOST=tester
-    volumes:
-      - ./examples:/exec_env/examples
-  benchmark:
-    container_name: benchmark
-    image: contractfuzzer/benchmark
-    build:
-      context: ./benchmark
-    ports:
-      - "8888:8888"
-    depends_on:
-      - "fuzzer"
-    environment:
-      - TESTER_HOST=tester
-    volumes:
-      - ./examples:/exec_env/examples
-      - ".:/exec_env/output"
+  # fuzzer:
+  #   container_name: fuzzer
+  #   image: contractfuzzer/fuzzer
+  #   build:
+  #     context: ./contractfuzzer
+  #   ports:
+  #     - "8888:8888"
+  #   depends_on:
+  #     - "tester"
+  #   environment:
+  #     - TESTER_HOST=tester
+  #   volumes:
+  #     - ./examples:/exec_env/examples
+  # benchmark:
+  #   container_name: benchmark
+  #   image: contractfuzzer/benchmark
+  #   build:
+  #     context: ./benchmark
+  #   ports:
+  #     - "8888:8888"
+  #   depends_on:
+  #     - "fuzzer"
+  #   environment:
+  #     - TESTER_HOST=tester
+  #   volumes:
+  #     - ./examples:/exec_env/examples
+  #     - ".:/exec_env/output"

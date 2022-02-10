@@ -16,9 +16,3 @@
 
 # Go workspace file
 go.work
-
-# Jetbrains IDEs
-.idea
-
-# VS Code
-.vscode

@@ -259,16 +259,19 @@ func Start(dir string, outdir string) error {
 	}()
 	if err := os.Mkdir(outdir, 0777); err != nil {
 		if !os.IsExist(err) {
+			log.Println("Error while creating output dir: ", err)
 			return err
 		}
 	}
 	files, err := readDir(dir)
 	if err != nil {
+		log.Println("Error while reading abir dir: ", err)
 		return err
 	}
 
 	f, err := os.OpenFile("/tmp/c_elapsed.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		log.Println("Error while reading elapsed time dir: ", err)
 		return err
 	}
 	defer f.Close()
