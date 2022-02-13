@@ -12,7 +12,8 @@
             "program": "${workspaceFolder}/contractfuzzer/cmd/contractfuzzer",
             "env": {
                 "CONTRACT_DIR": "${workspaceFolder}/examples/delegatecall_dangerous",
-                "TESTER_HOST": "localhost"
+                "TESTER_HOST": "localhost",
+                "PORT": "8888"
             },
             "args": [
                 "-abi_dir=${workspaceFolder}/examples/delegatecall_dangerous/verified_contract_abis",

@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gongbell/contractfuzzer/fuzz"
+	"go.uber.org/zap"
 )
 
 const MAX_TIME uint64 = 10 * 60 // Ten minutes
@@ -57,6 +57,7 @@ type HackAPI interface {
 }
 
 type DefaultHackAPI struct {
+	Logger                   *zap.Logger
 	CountMutex               *sync.Mutex
 	Mutex                    *sync.Mutex
 	DecMutex                 *sync.Mutex
@@ -122,13 +123,14 @@ type DefaultHackAPI struct {
 	// IsFreezingEther bool
 }
 
-func (api DefaultHackAPI) Init(addrMapPath string, reporterPath string) DefaultHackAPI {
-	defer handleInitPanic()
+func (api DefaultHackAPI) Init(logger *zap.Logger, addrMapPath string, reporterPath string) DefaultHackAPI {
+	defer api.handleInitPanic()
+	api.Logger = logger
 
 	api.initFilesWithRWPermissions(reporterPath)
 	if _, err := os.Stat(addrMapPath); errors.Is(err, os.ErrNotExist) {
 		errorMsg := fmt.Sprintf("The provided address map file does not exist: %s", err)
-		log.Fatalln(errorMsg)
+		api.Logger.Panic(errorMsg)
 		panic(errorMsg)
 	}
 	api.AddrMapPath = addrMapPath
@@ -194,7 +196,7 @@ func (api DefaultHackAPI) Init(addrMapPath string, reporterPath string) DefaultH
 }
 
 func (api DefaultHackAPI) Post(c *gin.Context) {
-	defer handlePanic(c)
+	defer api.handlePanic(c)
 
 	api.CountMutex.Lock()
 	api.ReceiveCount++
@@ -215,7 +217,7 @@ func (api DefaultHackAPI) Post(c *gin.Context) {
 
 	api.DecMutex.Lock()
 	api.GroupCount--
-	log.Println(api.GroupCount)
+	api.Logger.Info(fmt.Sprintf("Group count: %d", api.GroupCount))
 	if api.GroupCount <= 0 {
 		if compareProfiles(api.LastProfile, api.Profile) {
 			api.UnchangedDuration--
@@ -241,44 +243,44 @@ func (api DefaultHackAPI) Post(c *gin.Context) {
 
 func (api DefaultHackAPI) initFilesWithRWPermissions(reporterPath string) {
 	logFile := filepath.Join(reporterPath, "log.txt")
-	api.LogWriter = openFileOrPanic(logFile)
+	api.LogWriter = api.openFileOrPanic(logFile)
 
 	countFile := filepath.Join(reporterPath, "count.txt")
-	api.CountWriter = openFileOrPanic(countFile)
+	api.CountWriter = api.openFileOrPanic(countFile)
 
 	contractOutputFile := filepath.Join(reporterPath, "contract_fun_vulnerabilities.txt")
-	api.ContractOutputWriter = openFileOrPanic(contractOutputFile)
+	api.ContractOutputWriter = api.openFileOrPanic(contractOutputFile)
 
 	receiveCountFile := filepath.Join(reporterPath, "receive_count.txt")
-	api.ReceiveCountWriter = openFileOrPanic(receiveCountFile)
+	api.ReceiveCountWriter = api.openFileOrPanic(receiveCountFile)
 
 	reentrancyFile := filepath.Join(reporterPath, "/bug/reentrancy_danger.list")
-	api.ReentrancyWriter = openFileOrPanic(reentrancyFile)
+	api.ReentrancyWriter = api.openFileOrPanic(reentrancyFile)
 
 	exceptionDisorderFile := filepath.Join(reporterPath, "/bug/exception_disorder.list")
-	api.ExceptionDisorderWriter = openFileOrPanic(exceptionDisorderFile)
+	api.ExceptionDisorderWriter = api.openFileOrPanic(exceptionDisorderFile)
 
 	delegateFile := filepath.Join(reporterPath, "/bug/delegate_danger.list")
-	api.DelegateWriter = openFileOrPanic(delegateFile)
+	api.DelegateWriter = api.openFileOrPanic(delegateFile)
 
 	gaslessFile := filepath.Join(reporterPath, "/bug/gasless_send.list")
-	api.GaslessWriter = openFileOrPanic(gaslessFile)
+	api.GaslessWriter = api.openFileOrPanic(gaslessFile)
 
 	timeDependencyFile := filepath.Join(reporterPath, "/bug/time_dependency.list")
-	api.TimeDependencyWriter = openFileOrPanic(timeDependencyFile)
+	api.TimeDependencyWriter = api.openFileOrPanic(timeDependencyFile)
 
 	numberDependencyFile := filepath.Join(reporterPath, "/bug/number_dependency.list")
-	api.NumberDependencyWriter = openFileOrPanic(numberDependencyFile)
+	api.NumberDependencyWriter = api.openFileOrPanic(numberDependencyFile)
 
 	freezingEtherFile := filepath.Join(reporterPath, "/bug/freezing_ether.list")
-	api.FreezingEtherWriter = openFileOrPanic(freezingEtherFile)
+	api.FreezingEtherWriter = api.openFileOrPanic(freezingEtherFile)
 }
 
 func (api DefaultHackAPI) importAddrContractMap() {
 	f, err := os.Open(api.AddrMapPath)
 	if err != nil {
 		errorMsg := fmt.Sprintf("The address map file could not be opened: %s", err)
-		log.Fatalln(errorMsg)
+		api.Logger.Panic(errorMsg)
 		panic(errorMsg)
 	}
 	defer f.Close()
@@ -287,7 +289,7 @@ func (api DefaultHackAPI) importAddrContractMap() {
 	records, err := csvReader.ReadAll()
 	if err != nil {
 		errorMsg := fmt.Sprintf("Error while reading the address map as a csv file: %s", err)
-		log.Fatalln(errorMsg)
+		api.Logger.Panic(errorMsg)
 		panic(errorMsg)
 	}
 
@@ -301,9 +303,9 @@ func (api DefaultHackAPI) importAddrContractMap() {
 
 func (api DefaultHackAPI) startFuzzerTimer() {
 	for {
-		log.Println(time.Now().Unix(), api.TimeBound)
+		api.Logger.Info(fmt.Sprintf("Current Time: %d -- Time Bound: %d", time.Now().Unix(), api.TimeBound))
 		if uint64(time.Now().Unix()) > api.TimeBound {
-			log.Println("TIMEOUT, stop.")
+			api.Logger.Info("TIMEOUT, stop.")
 			fuzz.G_stop <- true
 		}
 		time.Sleep(60 * time.Second)
@@ -321,10 +323,9 @@ func (api DefaultHackAPI) checkNewContractAndRestartFuzzerTimer() {
 			api.UnchangedDuration = MAX_DURATION
 		}
 		api.TimeMutex.Unlock()
-		log.Println(fuzz.RAND_CASE_SCALE)
+		api.Logger.Info(fmt.Sprintf("Rand case scale: %d", fuzz.RAND_CASE_SCALE))
 		api.GroupCount = 3 * fuzz.RAND_CASE_SCALE
-		log.Println(api.GroupCount)
-		log.Printf("group_count:%d\n", api.GroupCount)
+		api.Logger.Info(fmt.Sprintf("Group count: %d", api.GroupCount))
 		fuzz.G_sig_continue <- true
 	}
 }
@@ -547,7 +548,7 @@ func (api DefaultHackAPI) output() {
 	}
 	if len(api.Result) > 0 {
 		api.ContractOutputWriter.Write([]byte(packetInfo))
-		log.Println(packetInfo)
+		api.Logger.Info(fmt.Sprintf("PackageInfo: %s", packetInfo))
 	}
 	if strings.Contains(api.Profile, Danger_reentrancy) {
 		api.ReentrancyWriter.Write([]byte(api.AddrMap[strings.ToLower(api.Contract[1:len(api.Contract)-1])]))
@@ -600,30 +601,30 @@ func (api DefaultHackAPI) resetVulnerabilities() {
 	// api.IsFreezingEther = false
 }
 
-func openFileOrPanic(path string) *os.File {
+func (api DefaultHackAPI) openFileOrPanic(path string) *os.File {
 	countWriter, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		errorMsg := fmt.Sprintf("The file could not be created: %s", err)
-		log.Fatalln(errorMsg)
+		api.Logger.Panic(errorMsg)
 		panic(errorMsg)
 	}
 	return countWriter
 }
 
-func handlePanic(c *gin.Context) {
+func (api DefaultHackAPI) handlePanic(c *gin.Context) {
 	if err := recover(); err != nil {
-		log.Fatalln(err)
+		api.Logger.Panic(err.(string))
 		c.AbortWithError(500, errors.New(err.(string)))
 	}
 }
 
-func handleInitPanic() {
+func (api DefaultHackAPI) handleInitPanic() {
 	if err := recover(); err != nil {
-		log.Println(err)
+		api.Logger.Info(err.(string))
 		for i := 0; i < 10; i++ {
 			funcName, file, line, ok := runtime.Caller(i)
 			if ok {
-				log.Printf("frame %v:[func:%v,file:%v,line:%v]\n", i, runtime.FuncForPC(funcName).Name(), file, line)
+				api.Logger.Info(fmt.Sprintf("frame %v:[func:%v,file:%v,line:%v]\n", i, runtime.FuncForPC(funcName).Name(), file, line))
 			}
 		}
 	}

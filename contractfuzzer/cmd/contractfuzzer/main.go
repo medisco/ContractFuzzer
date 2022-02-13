@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/gongbell/contractfuzzer/fuzz"
 	"github.com/gongbell/contractfuzzer/server"
+	"go.uber.org/zap"
 )
 
 var (
@@ -33,15 +36,46 @@ var (
 func main() {
 	flag.Parse()
 
+	logger, err := initLogger()
+	if err != nil {
+		log.Printf("Error while loading zap logger: %s", err)
+		panic(err)
+	}
+	defer logger.Sync()
+
 	if err := fuzz.Init(*contract_list, *addr_seeds, *int_seeds, *uint_seeds, *string_seeds, *byte_seeds, *bytes_seeds, *fuzz_scale, *input_scale, *fstart, *fend, *addr_map, *abi_sigs_dir, *bin_sigs_dir, *listen_port, *tester_port); err != nil {
-		log.Printf("%s\n", err)
-		return
+		logger.Panic(fmt.Sprintf("Error while initializing fuzzer: %s\n", err))
+		panic(err)
 	}
 
-	s := new(server.DefaultServer).Init(*abi_dir, *out_dir, *addr_map, *reporter)
-	err := s.Run()
-	if err != nil {
+	s := new(server.DefaultServer).Init(logger, *abi_dir, *out_dir, *addr_map, *reporter)
+	if err = s.Run(); err != nil {
+		logger.Panic(fmt.Sprintf("Error while starting the HTTP server: %s\n", err))
 		panic(err)
 	}
 	<-fuzz.G_finish
+}
+
+func initLogger() (*zap.Logger, error) {
+	rawJSON := []byte(`{
+		"level": "debug",
+		"encoding": "json",
+		"outputPaths": ["stdout", "/tmp/logs"],
+		"errorOutputPaths": ["stderr"],
+		"encoderConfig": {
+			"messageKey": "message",
+			"levelKey": "level",
+			"levelEncoder": "lowercase"
+		}
+	}`)
+
+	var cfg zap.Config
+	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
+		return nil, err
+	}
+	l, err := cfg.Build()
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
 }

@@ -9,7 +9,7 @@ services:
     ports:
       - "8545:8545"
     environment:
-      - FUZZER_HOST=fuzzer
+      - FUZZER_HOST=host.docker.internal
   tester:
     container_name: tester
     image: contractfuzzer/tester

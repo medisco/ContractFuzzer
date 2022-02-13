@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gongbell/contractfuzzer/server/model"
+	"go.uber.org/zap"
 )
 
 type InstrumentAPI interface {
@@ -13,9 +14,11 @@ type InstrumentAPI interface {
 }
 
 type DefaultInstrumentAPI struct {
+	Logger *zap.Logger
 }
 
-func (api DefaultInstrumentAPI) Init() DefaultInstrumentAPI {
+func (api DefaultInstrumentAPI) Init(logger *zap.Logger) DefaultInstrumentAPI {
+	api.Logger = logger
 	return api
 }
 
@@ -26,6 +29,6 @@ func (api DefaultInstrumentAPI) Post(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("json: ", string(request.Name))
+	api.Logger.Info(fmt.Sprintf("json: %s", string(request.Name)))
 	c.AbortWithStatus(200)
 }
