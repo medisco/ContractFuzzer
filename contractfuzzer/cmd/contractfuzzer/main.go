@@ -53,7 +53,7 @@ func main() {
 		panic(err)
 	}
 
-	s := new(server.DefaultServer).Init(logger, *abi_dir, *out_dir, *addr_map, *reporter)
+	s := new(server.DefaultServer).Init(logger, *addr_map, *reporter, bus)
 	if err = s.Run(); err != nil {
 		logger.Panic(fmt.Sprintf("Error while starting the HTTP server: %s\n", err))
 		panic(err)
