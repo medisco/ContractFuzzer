@@ -7,6 +7,8 @@ import (
 	"log"
 
 	"github.com/gongbell/contractfuzzer/fuzz"
+	"github.com/gongbell/contractfuzzer/fuzzing"
+	"github.com/gongbell/contractfuzzer/pkg/event"
 	"github.com/gongbell/contractfuzzer/server"
 	"go.uber.org/zap"
 )
@@ -38,10 +40,13 @@ func main() {
 
 	logger, err := initLogger()
 	if err != nil {
-		log.Printf("Error while loading zap logger: %s", err)
+		log.Panicf("Error while loading zap logger: %s", err)
 		panic(err)
 	}
 	defer logger.Sync()
+
+	bus := new(event.MemoryEventBus).Init()
+	_ = new(fuzzing.DefaultFuzzingMaster).Init(logger, bus, *abi_dir, *out_dir)
 
 	if err := fuzz.Init(*contract_list, *addr_seeds, *int_seeds, *uint_seeds, *string_seeds, *byte_seeds, *bytes_seeds, *fuzz_scale, *input_scale, *fstart, *fend, *addr_map, *abi_sigs_dir, *bin_sigs_dir, *listen_port, *tester_port); err != nil {
 		logger.Panic(fmt.Sprintf("Error while initializing fuzzer: %s\n", err))
