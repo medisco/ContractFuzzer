@@ -1,6 +1,9 @@
 package oracle
 
-type ReentrancyOracle struct {
+type ReentrancyOracle struct{}
+
+func (o ReentrancyOracle) Name() string {
+	return REENTRANCY_ORACLE
 }
 
 func (o ReentrancyOracle) Detect(snapshot EventsSnapshot) bool {

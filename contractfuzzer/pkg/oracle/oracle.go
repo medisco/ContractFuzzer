@@ -3,6 +3,7 @@ package oracle
 import "errors"
 
 type Oracle interface {
+	Name() string
 	Detect(snapshot EventsSnapshot) bool
 }
 
@@ -23,17 +24,17 @@ func GetOracles(oracleNames []string) []Oracle {
 
 func GetOracleFromName(name string) (Oracle, error) {
 	switch name {
-	case "delegate":
+	case DELEGATE:
 		return DelegateOracle{}, nil
-	case "exception-disorder":
+	case EXCEPTION_DISORDER_ORACLE:
 		return ExceptionDisorderOracle{}, nil
-	case "gasless-send":
+	case GASLESS_SEND_ORACLE:
 		return GaslessSendOracle{}, nil
-	case "number-dependency":
+	case NUMBER_DEPENDENCY_ORACLE:
 		return NumberDependencyOracle{}, nil
-	case "reentrancy":
+	case REENTRANCY_ORACLE:
 		return ReentrancyOracle{}, nil
-	case "timestamp-dependency":
+	case TIMESTAMP_DEPENDENCY_ORACLE:
 		return TimestampDependencyOracle{}, nil
 	}
 	return nil, ErrOracleDoesntExist

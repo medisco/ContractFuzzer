@@ -2,8 +2,8 @@ package db
 
 const migrationQuery = `
 CREATE TABLE IF NOT EXISTS tasks(
-	id TEXT PRIMARY KEY
-	duration INT NOT NULL,
+	id TEXT PRIMARY KEY,
+	duration INT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS transactions(
@@ -14,12 +14,19 @@ CREATE TABLE IF NOT EXISTS transactions(
 		FOREIGN KEY (task_id)
 			REFERENCES tasks (id)
 				ON DELETE CASCADE
-				ON UPDATE CASCADE
+				ON UPDATE CASCADE,
+	contract_id TEXT NOT NULL,
+	CONSTRAINT fk_transactions_contract_id_contracts
+		FOREIGN KEY (contract_id)
+			REFERENCES contracts (id)
+				ON DELETE CASCADE
+				ON UPDATE CASCADE,
+	detected_weaknesses TEXT
 );
 
 CREATE TABLE IF NOT EXISTS oracles(
 	id TEXT PRIMARY KEY,
-	name TEXT NOT NULL UNIQUE,
+	name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS tasks_oracles(
@@ -28,7 +35,7 @@ CREATE TABLE IF NOT EXISTS tasks_oracles(
 		FOREIGN KEY (task_id)
 			REFERENCES tasks (id)
 				ON DELETE CASCADE
-				ON UPDATE CASCADE
+				ON UPDATE CASCADE,
 	oracle_id TEXT NOT NULL,
 	CONSTRAINT fk_tasks_oracles_oracle_id_oracles
 		FOREIGN KEY (oracle_id)
@@ -40,7 +47,7 @@ CREATE TABLE IF NOT EXISTS tasks_oracles(
 CREATE TABLE IF NOT EXISTS contract(
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
-	address TEXT NOT NULL UNIQUE,
+	address TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS tasks_contracts(
@@ -49,7 +56,7 @@ CREATE TABLE IF NOT EXISTS tasks_contracts(
 		FOREIGN KEY (task_id)
 			REFERENCES tasks (id)
 				ON DELETE CASCADE
-				ON UPDATE CASCADE
+				ON UPDATE CASCADE,
 	contract_id TEXT NOT NULL,
 	CONSTRAINT fk_tasks_contracts_contract_id_contracts
 		FOREIGN KEY (contract_id)

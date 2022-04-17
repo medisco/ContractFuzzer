@@ -12,6 +12,7 @@ import (
 
 type TransactionRepository interface {
 	Create(transaction *domain.Transaction) error
+	Update(transaction *domain.Transaction) error
 	Find(id string) (*domain.Transaction, error)
 	FindByBlockchainHash(blockchainHash string) (*domain.Transaction, error)
 	FindTransactionsByTaskId(taskId string) ([]domain.Transaction, error)
@@ -42,11 +43,48 @@ func (r TransactionSQLiteRepository) Create(transaction *domain.Transaction) err
 	return nil
 }
 
+func (r TransactionSQLiteRepository) Update(transaction *domain.Transaction) error {
+	query := `
+		UPDATE transactions 
+		SET 
+			blockchain_hash = $2,
+			task_id = $3,
+			contract_id = $4,
+			detected_weaknesses = $5
+		WHERE id = $1
+	`
+	_, err := r.manager.GetDB().Exec(
+		query,
+		transaction.Id,
+		transaction.BlockchainHash,
+		transaction.TaskId,
+		transaction.ContractId,
+		transaction.DetectedWeaknesses,
+	)
+
+	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotExists
+			}
+		}
+		return err
+	}
+	return nil
+}
+
 func (r TransactionSQLiteRepository) Find(id string) (*domain.Transaction, error) {
 	row := r.manager.GetDB().QueryRow("SELECT * FROM transactions WHERE id = ?", id)
 
 	var transaction domain.Transaction
-	if err := row.Scan(&transaction.Id); err != nil {
+	if err := row.Scan(
+		&transaction.Id,
+		&transaction.BlockchainHash,
+		&transaction.TaskId,
+		&transaction.ContractId,
+		&transaction.DetectedWeaknesses,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
@@ -59,7 +97,13 @@ func (r TransactionSQLiteRepository) FindByBlockchainHash(blockchainHash string)
 	row := r.manager.GetDB().QueryRow("SELECT * FROM transactions WHERE blockchain_hash = ?", blockchainHash)
 
 	var transaction domain.Transaction
-	if err := row.Scan(&transaction.Id); err != nil {
+	if err := row.Scan(
+		&transaction.Id,
+		&transaction.BlockchainHash,
+		&transaction.TaskId,
+		&transaction.ContractId,
+		&transaction.DetectedWeaknesses,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotExists
 		}
@@ -78,7 +122,13 @@ func (r TransactionSQLiteRepository) FindTransactionsByTaskId(taskId string) ([]
 	var transactions []domain.Transaction
 	for rows.Next() {
 		var transaction domain.Transaction
-		if err := rows.Scan(&transaction.Id, &transaction.BlockchainHash, &transaction.TaskId); err != nil {
+		if err := rows.Scan(
+			&transaction.Id,
+			&transaction.BlockchainHash,
+			&transaction.TaskId,
+			&transaction.ContractId,
+			&transaction.DetectedWeaknesses,
+		); err != nil {
 			return nil, err
 		}
 		transactions = append(transactions, transaction)

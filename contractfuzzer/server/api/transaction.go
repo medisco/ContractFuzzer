@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,11 +17,13 @@ type TransactionAPI interface {
 type DefaultTransactionAPI struct {
 	logger                *zap.Logger
 	transactionRepository repository.TransactionRepository
+	contractRepository    repository.ContractRepository
 }
 
 func (api DefaultTransactionAPI) Init(
 	logger *zap.Logger,
 	transactionRepository repository.TransactionRepository,
+	contractRepository repository.ContractRepository,
 ) DefaultTransactionAPI {
 	api.logger = logger
 	api.transactionRepository = transactionRepository
@@ -36,10 +37,16 @@ func (api DefaultTransactionAPI) Create(c *gin.Context) {
 		return
 	}
 
-	api.logger.Info(fmt.Sprintf("Storing txHash: %s in task %s", request.TaskId, request.BlockchainHash))
+	contract, err := api.contractRepository.FindByAddress(request.ContractAddress)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	transaction := domain.Transaction{}
 	transaction.TaskId = request.TaskId
 	transaction.BlockchainHash = request.BlockchainHash
+	transaction.ContractId = contract.Id
 	api.transactionRepository.Create(&transaction)
 
 	response := model.TransactionCreateResponse{TransactionId: transaction.Id}

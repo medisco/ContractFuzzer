@@ -124,11 +124,24 @@ func (api DefaultInstrumentAPI) Weakness(c *gin.Context) {
 		oracleNames = append(oracleNames, entity.Name)
 	}
 	oracles := oracle.GetOracles(oracleNames)
-
 	snapshot := oracle.NewEventsSnapshot(request.OracleEvents)
 
+	var weaknesses []string
 	for _, o := range oracles {
-		o.Detect(snapshot)
+		if o.Detect(snapshot) {
+			weaknesses = append(weaknesses, o.Name())
+		}
+	}
+
+	transaction.SetDetectedWeaknesses(weaknesses)
+	api.transactionRepository.Update(transaction)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotExists) {
+			c.AbortWithStatus(404)
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	c.AbortWithStatus(200)

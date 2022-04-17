@@ -48,6 +48,7 @@ func (s DefaultServer) Init(environment env.Environment, addrMapPath, reporter, 
 	s.transactionAPIs = new(api.DefaultTransactionAPI).Init(
 		environment.Logger(),
 		environment.TransactionRepository(),
+		environment.ContractRepository(),
 	)
 
 	// Configure router
