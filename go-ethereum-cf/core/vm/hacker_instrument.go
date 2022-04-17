@@ -13,6 +13,7 @@ import (
 type InstrumentRequest struct {
 	Name         string   `json:"name"`
 	Input        string   `json:"input"`
+	TxHash       string   `json:"txHash"`
 	Instructions []uint64 `json:"instructions"`
 }
 
@@ -24,13 +25,14 @@ type ExecutionRegistry interface {
 type executionRegistry struct {
 	name         string
 	input        string
+	txHash       string
 	instructions []uint64
 }
 
 var lock = &sync.Mutex{}
 var instance *executionRegistry
 
-func GetRegistryInstance(contractName string, input string) *executionRegistry {
+func GetRegistryInstance(contractName string, input string, txHash string) *executionRegistry {
 	if instance == nil {
 		lock.Lock()
 		defer lock.Unlock()
@@ -39,6 +41,7 @@ func GetRegistryInstance(contractName string, input string) *executionRegistry {
 			instance = &executionRegistry{
 				name:         contractName,
 				input:        input,
+				txHash:       txHash,
 				instructions: make([]uint64, 0, 3),
 			}
 		}
@@ -56,11 +59,16 @@ func (r executionRegistry) SendRegistriesToFuzzer() {
 	if fuzzerHost == "" {
 		fuzzerHost = "localhost"
 	}
-	url := fmt.Sprintf("http://%s:8888/instrument", fuzzerHost)
+	fuzzerPort := os.Getenv("FUZZER_PORT")
+	if fuzzerPort == "" {
+		fuzzerPort = "8888"
+	}
+	url := fmt.Sprintf("http://%s:%s/instrument/execution", fuzzerHost, fuzzerPort)
 
 	request := InstrumentRequest{
 		Name:         r.name,
 		Input:        r.input,
+		TxHash:       r.txHash,
 		Instructions: r.instructions,
 	}
 	data, err := json.Marshal(request)

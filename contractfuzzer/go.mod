@@ -11,6 +11,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-sqlite3 v1.14.12 // indirect
+	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect

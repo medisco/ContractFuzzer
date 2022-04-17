@@ -563,7 +563,7 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int) (co
 	for idx, tx := range txs {
 		// Assemble the transaction call message
 		msg, _ := tx.AsMessage(signer)
-		context := core.NewEVMContext(msg, block.Header(), api.eth.BlockChain(), nil)
+		context := core.NewEVMContext(msg, block.Header(), api.eth.BlockChain(), nil, tx.Hash().Hex())
 		if idx == txIndex {
 			return msg, context, statedb, nil
 		}

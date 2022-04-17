@@ -1,16 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 
+	"github.com/gongbell/contractfuzzer/env"
 	"github.com/gongbell/contractfuzzer/fuzz"
 	"github.com/gongbell/contractfuzzer/fuzzing"
-	"github.com/gongbell/contractfuzzer/pkg/event"
 	"github.com/gongbell/contractfuzzer/server"
-	"go.uber.org/zap"
 )
 
 var (
@@ -38,49 +36,27 @@ var (
 func main() {
 	flag.Parse()
 
-	logger, err := initLogger()
+	// Initialize environment
+	appEnv, err := new(env.DefaultEnvironment).Init()
 	if err != nil {
-		log.Panicf("Error while loading zap logger: %s", err)
+		log.Panicf("Error while initializing environment: %s", err)
 		panic(err)
 	}
-	defer logger.Sync()
+	defer appEnv.Destroy()
 
-	bus := new(event.MemoryEventBus).Init()
-	_ = new(fuzzing.DefaultFuzzingMaster).Init(logger, bus, *abi_dir, *out_dir)
+	// Initialize fuzzing leader
+	_ = new(fuzzing.DefaultFuzzingLeader).Init(appEnv.Logger(), appEnv.EventBus(), *abi_dir, *out_dir)
 
-	if err := fuzz.Init(*contract_list, *addr_seeds, *int_seeds, *uint_seeds, *string_seeds, *byte_seeds, *bytes_seeds, *fuzz_scale, *input_scale, *fstart, *fend, *addr_map, *abi_sigs_dir, *bin_sigs_dir, *listen_port, *tester_port); err != nil {
-		logger.Panic(fmt.Sprintf("Error while initializing fuzzer: %s\n", err))
+	if err := fuzz.Init(appEnv.Logger(), *contract_list, *addr_seeds, *int_seeds, *uint_seeds, *string_seeds, *byte_seeds, *bytes_seeds, *fuzz_scale, *input_scale, *fstart, *fend, *addr_map, *abi_sigs_dir, *bin_sigs_dir, *listen_port, *tester_port); err != nil {
+		appEnv.Logger().Panic(fmt.Sprintf("Error while initializing fuzzer: %s\n", err))
 		panic(err)
 	}
 
-	s := new(server.DefaultServer).Init(logger, *addr_map, *reporter, bus)
-	if err = s.Run(); err != nil {
-		logger.Panic(fmt.Sprintf("Error while starting the HTTP server: %s\n", err))
+	// Run server
+	server := new(server.DefaultServer).Init(appEnv, *addr_map, *reporter, "8888")
+	if err = server.Run(); err != nil {
+		appEnv.Logger().Panic(fmt.Sprintf("Error while starting the HTTP server: %s\n", err))
 		panic(err)
 	}
 	<-fuzz.G_finish
-}
-
-func initLogger() (*zap.Logger, error) {
-	rawJSON := []byte(`{
-		"level": "debug",
-		"encoding": "json",
-		"outputPaths": ["stdout", "/tmp/logs"],
-		"errorOutputPaths": ["stderr"],
-		"encoderConfig": {
-			"messageKey": "message",
-			"levelKey": "level",
-			"levelEncoder": "lowercase"
-		}
-	}`)
-
-	var cfg zap.Config
-	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
-		return nil, err
-	}
-	l, err := cfg.Build()
-	if err != nil {
-		return nil, err
-	}
-	return l, nil
 }

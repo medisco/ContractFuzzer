@@ -1,10 +1,9 @@
 package model
 
-import "time"
-
 type FuzzStartRequest struct {
-	Contracts []string      `json:"contracts"`
-	Duration  time.Duration `json:"duration"`
+	Contracts []string `json:"contracts"`
+	Duration  string   `json:"duration"`
+	Detectors []string `json:"detectors"`
 }
 
 type FuzzStartResponse struct {

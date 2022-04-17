@@ -13,7 +13,10 @@
 #   -tester_port http://localhost:8088/               \
 #   -listen_port :8888                                \
 #   -fstart ${FROM} -fend ${END}
+
 echo ${CONTRACT_DIR}
+go build ./cmd/contractfuzzer
+
 ./contractfuzzer -abi_dir ${CONTRACT_DIR}/verified_contract_abis     \
   -abi_sigs_dir  ${CONTRACT_DIR}/verified_contract_abi_sigs          \
   -bin_sigs_dir  ${CONTRACT_DIR}/verified_contract_bin_sigs           \
@@ -27,4 +30,4 @@ echo ${CONTRACT_DIR}
   -contract_list ${CONTRACT_DIR}/fuzzer/config/contracts.list        \
   -reporter      ${CONTRACT_DIR}/fuzzer/reporter                     \
   -tester_port   http://${TESTER_HOST}:8088/                           \
-  -listen_port   :8888                                
+  -listen_port   :8888

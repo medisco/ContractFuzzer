@@ -111,7 +111,7 @@ func (b *EthApiBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
-	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil)
+	context := core.NewEVMContext(msg, header, b.eth.BlockChain(), nil, "api_backend:GetEVM")
 	return vm.NewEVM(context, state, b.eth.chainConfig, vmCfg), vmError, nil
 }
 

@@ -206,6 +206,8 @@ func (api DefaultHackAPI) Post(c *gin.Context) {
 
 	oracles := c.Request.URL.Query().Get("oracles")
 	profile := c.Request.URL.Query().Get("profile")
+	txHash := c.Request.URL.Query().Get("txHash")
+	api.Logger.Info(fmt.Sprintf("TX HASH: %s", txHash))
 	api.countOracles(oracles)
 	countList := fmt.Sprintf("%4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d %4d\n ", api.CallFailedCount, api.StorageChangedCount, api.CallOpCount, api.CallExceptionCount, api.ExceptionDisorderCount, api.EtherTransferCount, api.EtherTransferFailedCount, api.DelegateCount, api.GaslessSendCount, api.ReentrancyCount, api.CallEtherFailedCount, api.RepeatedCallCount, api.TimestampCount, api.BlockHashCount, api.BlockNumberCount, api.SendOpCount, api.UnknowCallCount, api.FreezingEtherCount)
 	api.CountWriter.Write([]byte(countList))

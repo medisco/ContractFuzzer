@@ -9,19 +9,20 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"io"
 	"log"
 	"math/big"
 	"net/http"
-	"net/url"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var hacker_env *EVM
@@ -45,6 +46,28 @@ type HackerContractCall struct {
 	errOutBalance  bool
 	snapshotId     int
 	nextRevisionId int
+}
+
+type InstrumentWeaknessRequest struct {
+	OracleEvents []string  `json:"oracleEvents"`
+	Execution    Execution `json:"execution"`
+	TxHash       string    `json:"txHash"`
+}
+
+// type Profile string
+
+type Execution struct {
+	Metadata    ExecutionMetadata `json:"metadata"`
+	CallsLength int               `json:"callsLength"`
+	Trace       []string          `json:"trace"`
+}
+
+type ExecutionMetadata struct {
+	Caller string `json:"caller"`
+	Callee string `json:"callee"`
+	Value  string `json:"value"`
+	Gas    string `json:"gas"`
+	Input  string `json:"input"`
 }
 
 func CallsPointerToString(calls []*HackerContractCall) string {
@@ -418,7 +441,7 @@ var Client = &http.Client{
 }
 
 // var Client = http.Client{Transport:&transport}
-func hacker_close() {
+func hacker_close(txHash string) {
 	defer func() { // 必须要先声明defer，否则不能捕获到panic异常
 		hacker_env = nil
 		hacker_call_stack = nil
@@ -487,23 +510,59 @@ func hacker_close() {
 
 		// Send the oracle and profile reports from one transaction or one contract call more precisely.
 		// to FuzzerReporter outside, whose listening port is on "http://localhost:8888/hack"
-		features_str, _ := json.Marshal(features)
-		values := url.Values{"oracles": {string(features_str)}, "profile": {GetReportor().Profile(hacker_call_hashs, hacker_calls)}}
+		// features_str, _ := json.Marshal(features)
+		// values := url.Values{
+		// 	"oracles": {string(features_str)},
+		// 	"profile":    {GetReportor().Profile(hacker_call_hashs, hacker_calls)},
+		// }
+		// values.Add("txHash", txHash)
+
+		values := InstrumentWeaknessRequest{
+			OracleEvents: features,
+			TxHash:       txHash,
+			Execution: Execution{
+				Metadata: ExecutionMetadata{
+					Caller: hacker_calls[0].caller.Hex(),
+					Callee: hacker_calls[0].callee.Hex(),
+					Value:  hacker_calls[0].value.Text(10),
+					Gas:    hacker_calls[0].value.Text(10),
+					Input:  hex.EncodeToString(hacker_calls[0].input),
+				},
+				CallsLength: len(hacker_calls),
+				Trace:       hacker_calls[0].OperationStack.Data(),
+			},
+		}
+		json_data, err := json.Marshal(values)
+		if err != nil {
+			log.Println("Error Occured. %+v", err)
+		}
+
 		fuzzerHost := os.Getenv("FUZZER_HOST")
 		if fuzzerHost == "" {
 			fuzzerHost = "localhost"
 		}
-		url := fmt.Sprintf("http://%s:8888/hack?%s", fuzzerHost, values.Encode())
+		fuzzerPort := os.Getenv("FUZZER_PORT")
+		if fuzzerPort == "" {
+			fuzzerPort = "8888"
+		}
+		// url := fmt.Sprintf("http://%s:%s/hack?%s", fuzzerHost, fuzzerPort, values.Encode())
+		url := fmt.Sprintf("http://%s:%s/instrument/weakness", fuzzerHost, fuzzerPort)
 		log.Printf("Calling %s\n", url)
 
-		if req, err := http.NewRequest("GET", url, nil); err != nil {
+		resp, err := http.Post(url, "application/json", bytes.NewBuffer(json_data))
+		if err != nil {
 			log.Println("Error Occured. %+v", err)
-		} else {
-			if response, err := Client.Do(req); err != nil {
-				log.Println("Error sending request to API endpoint. %+v", err)
-			} else {
-				defer response.Body.Close()
-			}
 		}
+		defer resp.Body.Close()
+
+		// if req, err := http.NewRequest("GET", url, nil); err != nil {
+		// 	log.Println("Error Occured. %+v", err)
+		// } else {
+		// 	if response, err := Client.Do(req); err != nil {
+		// 		log.Println("Error sending request to API endpoint. %+v", err)
+		// 	} else {
+		// 		defer response.Body.Close()
+		// 	}
+		// }
 	}
 }

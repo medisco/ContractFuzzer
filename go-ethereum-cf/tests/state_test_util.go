@@ -149,7 +149,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) error {
 	if err != nil {
 		return err
 	}
-	context := core.NewEVMContext(msg, block.Header(), nil, &t.json.Env.Coinbase)
+	context := core.NewEVMContext(msg, block.Header(), nil, &t.json.Env.Coinbase, "state_test_util:Run")
 	context.GetHash = vmTestBlockHash
 	evm := vm.NewEVM(context, statedb, config, vmconfig)
 

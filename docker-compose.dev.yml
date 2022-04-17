@@ -10,6 +10,8 @@ services:
       - "8545:8545"
     environment:
       - FUZZER_HOST=host.docker.internal
+      - FUZZER_PORT=8889
+      # - FUZZER_HOST=172.17.196.146
   tester:
     container_name: tester
     image: contractfuzzer/tester
@@ -22,6 +24,8 @@ services:
       - "geth"
     environment:
       - GETH_HOST=geth
+      - FUZZER_HOST=host.docker.internal
+      - FUZZER_PORT=8889
   # fuzzer:
   #   container_name: fuzzer
   #   image: contractfuzzer/fuzzer

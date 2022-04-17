@@ -104,7 +104,7 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 	}
 
 	// HACKER: initialize instructions registry
-	registry := GetRegistryInstance(contract.CodeAddr.Hex(), common.ToHex(contract.Input))
+	registry := GetRegistryInstance(contract.CodeAddr.Hex(), common.ToHex(contract.Input), in.evm.Context.Hacker_TxHash)
 	defer registry.SendRegistriesToFuzzer()
 
 	codehash := contract.CodeHash // codehash is used when doing jump dest caching

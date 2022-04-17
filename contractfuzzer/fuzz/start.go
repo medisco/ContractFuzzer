@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gongbell/contractfuzzer/pkg/abi_gen"
+	"go.uber.org/zap"
 )
 
 var (
@@ -22,24 +23,25 @@ var transport = http.Transport{
 }
 var Client = http.Client{Transport: &transport}
 var (
-	Global_contractList       []string = []string{""}
-	Global_addrSeed           string   = ""
-	Global_intSeed            string   = ""
-	Global_uintSeed           string   = ""
-	Global_stringSeed         string   = ""
-	Global_byteSeed           string   = ""
-	Global_bytesSeed          string   = ""
-	Global_scale              int      = 2
-	Global_fun_scale          int      = 8
-	Global_fstart             int      = 0
-	Global_fend               int      = 0
-	Global_addr_map                    = ""
-	Global_abi_sigs_dir                = ""
-	Global_bin_sigs_dir                = ""
-	Global_listen_port                 = ""
-	Global_tester_port                 = ""
-	GlobalADDR_MAP                     = make(map[string]string)
-	GlobalFUNSIG_CONTRACT_MAP          = make(map[string][]string)
+	Global_contractList       []string    = []string{""}
+	Global_addrSeed           string      = ""
+	Global_intSeed            string      = ""
+	Global_uintSeed           string      = ""
+	Global_stringSeed         string      = ""
+	Global_byteSeed           string      = ""
+	Global_bytesSeed          string      = ""
+	Global_scale              int         = 2
+	Global_fun_scale          int         = 8
+	Global_fstart             int         = 0
+	Global_fend               int         = 0
+	Global_addr_map                       = ""
+	Global_abi_sigs_dir                   = ""
+	Global_bin_sigs_dir                   = ""
+	Global_listen_port                    = ""
+	Global_tester_port                    = ""
+	GlobalADDR_MAP                        = make(map[string]string)
+	GlobalFUNSIG_CONTRACT_MAP             = make(map[string][]string)
+	Logger                    *zap.Logger = nil
 )
 
 func createADDR_MAP() error {
@@ -182,9 +184,10 @@ func setG_current_abi_sigs() error {
 	}
 	return nil
 }
-func Init(contractListPath, addrSeed, intSeed, uintSeed, stringSeed, byteSeed,
+func Init(logger *zap.Logger, contractListPath, addrSeed, intSeed, uintSeed, stringSeed, byteSeed,
 	bytesSeed string, scale, fun_scale, fstart, fend int, addr_map, abi_sigs_dir, bin_sigs_dir string,
 	listen_port, tester_port string) error {
+	Logger = logger
 	Global_contractList = make([]string, 0, 0)
 	if contractListPath != "null" {
 		file, err := os.Open(contractListPath)
@@ -212,10 +215,14 @@ func Init(contractListPath, addrSeed, intSeed, uintSeed, stringSeed, byteSeed,
 	Global_tester_port = tester_port
 	createADDR_MAP()
 	createFUNSIG_CONTRACT_MAP()
+	Logger.Debug("Initializing Fuzzer")
 	return nil
 }
-func sendMsg2RunnerMonitor(address string, msgs []string) bool {
-	values := url.Values{"address": []string{address}, "msg": msgs}
+func sendMsg2RunnerMonitor(address string, msgs []string, taskId string) bool {
+	Logger.Debug(fmt.Sprintf("Sending %d messages", len(msgs)),
+		zap.String("address", address),
+	)
+	values := url.Values{"address": []string{address}, "msg": msgs, "taskId": []string{taskId}}
 	go func() {
 		// res,_ := Client.Get("http://localhost:6666/runnerMonitor?"+values.Encode())
 		res, e := Client.Get(Global_tester_port + "/runnerMonitor?" + values.Encode())
@@ -250,32 +257,33 @@ var (
 	G_sig_continue = make(chan bool, 0)
 )
 
-func Start(dir string, outdir string) error {
+func Start(dir string, outdir string, taskId string) error {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Println(err)
+			Logger.Error(fmt.Sprintf("%s", err))
 			printCallStackIfError()
 		}
 	}()
 	if err := os.Mkdir(outdir, 0777); err != nil {
 		if !os.IsExist(err) {
-			log.Println("Error while creating output dir: ", err)
+			Logger.Error(fmt.Sprintf("Error while creating output dir: %s", err))
 			return err
 		}
 	}
 	files, err := readDir(dir)
 	if err != nil {
-		log.Println("Error while reading abir dir: ", err)
+		Logger.Error(fmt.Sprintf("Error while reading abir dir: %s", err))
 		return err
 	}
 
 	f, err := os.OpenFile("/tmp/c_elapsed.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println("Error while reading elapsed time dir: ", err)
+		Logger.Error(fmt.Sprintf("Error while reading elapsed time dir: %s", err))
 		return err
 	}
 	defer f.Close()
 
+	Logger.Info("Starting fuzzer")
 	if len(Global_contractList) == 0 {
 		for i := Global_fstart; i < Global_fend && i < len(files)-1; i++ {
 			start := time.Now()
@@ -339,7 +347,7 @@ func Start(dir string, outdir string) error {
 				}
 				G_start <- true
 				<-G_sig_continue
-				sendMsg2RunnerMonitor(current_contract_address, msgs)
+				sendMsg2RunnerMonitor(current_contract_address, msgs, taskId)
 				msgs = make([]string, 0)
 				funs = make([]string, 0)
 				if no == RAND_CASE_RANGE-1 {
@@ -424,7 +432,7 @@ func Start(dir string, outdir string) error {
 				}
 				G_start <- true
 				<-G_sig_continue
-				sendMsg2RunnerMonitor(current_contract_address, msgs)
+				sendMsg2RunnerMonitor(current_contract_address, msgs, taskId)
 				msgs = make([]string, 0)
 				funs = make([]string, 0)
 				if no == RAND_CASE_RANGE-1 {

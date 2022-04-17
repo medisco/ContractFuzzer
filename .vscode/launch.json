@@ -5,14 +5,36 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Package",
+            "type": "pwa-node",
+            "name": "Launch contract_tester",
+            "program": "${workspaceFolder}/contract_tester/utils/runFuzzMonitor",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/contract_tester/node_modules/.bin/babel-node",
+            "args": [
+                "--gethrpcport",
+                "http://localhost:8545",
+                "--account",
+                "0",
+                "--value",
+                "100000000"
+            ],
+            "env": {
+                "FUZZER_HOST": "host.docker.internal",
+                "FUZZER_PORT": "8889"
+            },
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Launch contractfuzzer",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/contractfuzzer/cmd/contractfuzzer",
             "env": {
                 "CONTRACT_DIR": "${workspaceFolder}/examples/delegatecall_dangerous",
-                "TESTER_HOST": "localhost",
+                "TESTER_HOST": "tester",
                 "PORT": "8888"
             },
             "args": [
@@ -28,7 +50,7 @@
                 "-addr_map=${workspaceFolder}/examples/delegatecall_dangerous/fuzzer/config/addrmap.csv",
                 "-abi_sigs_dir=${workspaceFolder}/examples/delegatecall_dangerous/verified_contract_abi_sigs",
                 "-bin_sigs_dir=${workspaceFolder}/examples/delegatecall_dangerous/verified_contract_bin_sigs",
-                "-tester_port=http://localhost:8088/",
+                "-tester_port=http://host.docker.internal:8088/",
                 "-listen_port=:8888",
                 "-reporter=${workspaceFolder}/examples/delegatecall_dangerous/fuzzer/reporter"
             ]

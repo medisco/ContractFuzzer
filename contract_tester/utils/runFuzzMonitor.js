@@ -12,6 +12,7 @@ import {
     defaultGas
 } from "./ContractUtils.js";
 import { type } from "os";
+import axios from "axios";
 const truffle_Contract = require("truffle-contract");
 
 const assert = require("assert");
@@ -35,24 +36,42 @@ if (!Array.prototype.shuffle) {
     };
 }
 
-function sendBatchTransaction(transactions) {
-    const sendTransaction = Promise.promisify(web3.eth.sendTransaction);
+function sendBatchTransaction(taskId, transactions) {
+    // const sendTransaction = Promise.promisify(web3.eth.sendTransaction);
     for (let transaction of transactions) {
-        sendTransaction(transaction).catch(function(err){
-            //do nothing but output err msg
-            console.log(err);            
-        });
+        web3.eth.sendTransaction(transaction, (err, hash) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            registerTransaction(taskId, hash);
+        })
+        // .then(receipt => console.log(`TX HASH: ${receipt.transactionHash}`))
+        // .on("receipt", receipt => console.log(`TX HASH: ${receipt.transactionHash}`))
+        // .on("error", console.error);
     }
 }
-function MyCallWithValueBatch(args){
+
+function registerTransaction(taskId, txHash) {
+    let fuzzerHost = process.env["FUZZER_HOST"];
+    let fuzzerPort = process.env["FUZZER_PORT"];
+    axios.post(`http://${fuzzerHost}:${fuzzerPort}/transaction`, {
+        taskId: taskId,
+        blockchainHash: txHash,
+    })
+        .then(response => `Transaction registered with success: ${response.transactionId}`)
+        .catch(err => `Error catch: ${err}`);
+}
+
+function MyCallWithValueBatch(args) {
     for (let arg of args) {
-        arg.Caller.MyCallWithValue(arg.contract_addr, arg.msg_data,{from:defaultAccount, value:arg.value,  gas:defaultAmountParamsWithValue.gas}).catch(function(err){
-          console.log(err);
+        arg.Caller.MyCallWithValue(arg.contract_addr, arg.msg_data, { from: defaultAccount, value: arg.value, gas: defaultAmountParamsWithValue.gas }).catch(function (err) {
+            console.log(err);
         });
     }
 }
 
-async function getAgent(){
+async function getAgent() {
     let name = "Agent";
     let address = "0xe930e50b62af818dbc955f345f9a3a3108f7a70d";
     let abi = JSON.parse('[{"constant":true,"inputs":[],"name":"count","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"hasValue","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"sendFailedCount","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"contract_addr","type":"address"}],"name":"MySend","outputs":[],"payable":true,"type":"function"},{"constant":false,"inputs":[{"name":"contract_addr","type":"address"},{"name":"msg_data","type":"bytes"}],"name":"MyCallWithoutValue","outputs":[],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"call_contract_addr","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"sendCount","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function"},{"constant":false,"inputs":[{"name":"contract_addr","type":"address"},{"name":"msg_data","type":"bytes"}],"name":"MyCallWithValue","outputs":[],"payable":true,"type":"function"},{"constant":true,"inputs":[],"name":"call_msg_data","outputs":[{"name":"","type":"bytes"}],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"getContractAddr","outputs":[{"name":"addr","type":"address"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"turnoff","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function"},{"constant":false,"inputs":[],"name":"getCallMsgData","outputs":[{"name":"msg_data","type":"bytes"}],"payable":false,"type":"function"},{"inputs":[],"type":"constructor"},{"payable":true,"type":"fallback"}]');
@@ -69,114 +88,122 @@ async function getAgent(){
     let Caller3 = await MyContract.deployed();
     return Caller3;
 }
-function getOwner(){
+
+function getOwner() {
     return defaultAccount;
 }
-function getNormal(){
+
+function getNormal() {
     return Account1;
 }
+
 let Agent;
 let Owner;
 let Normal;
-let Robin=[0,10000000,10000000000];
+let Robin = [0, 10000000, 10000000000];
 const Robin_Index = 3
 let Robin_no = 0;
-function go(address,msg_group){
+
+function go(taskId, address, msg_group) {
     let argsAgent = [];
     let args = [];
     let value = VALUE;
-    for (let index=0;index<msg_group.length;index++){
+    for (let index = 0; index < msg_group.length; index++) {
         Robin_no++;
-        value = Robin[Robin_no%Robin_Index];
+        value = Robin[Robin_no % Robin_Index];
         argsAgent.push({
             Caller: Agent,
             contract_addr: address,
             msg_data: msg_group[index],
-            value:value
+            value: value
         });
-        value = Robin[(Robin_no%Robin_Index+1)%Robin_Index];
+        value = Robin[(Robin_no % Robin_Index + 1) % Robin_Index];
         args.push({
             from: Owner,
             to: address,
             value: value,
             gas: defaultGas,
-            data:  msg_group[index]
+            data: msg_group[index]
         });
-        value = Robin[(Robin_no%Robin_Index+1)%Robin_Index];
+        value = Robin[(Robin_no % Robin_Index + 1) % Robin_Index];
         args.push({
             from: Normal,
             to: address,
             value: value,
             gas: defaultGas,
-            data:  msg_group[index]
+            data: msg_group[index]
         });
     }
     MyCallWithValueBatch(argsAgent);
-    sendBatchTransaction(args);
+    sendBatchTransaction(taskId, args);
 }
 
-function RunnerMonitor(){
+function RunnerMonitor() {
     const port = 8088;
     const http = require('http');
     const url = require('url');
-    try{
-    http.createServer(function (request, response) {
-        console.log(request.url);
-        let obj = url.parse(request.url,true);
-        console.log(obj.query);
-        let address = obj.query["address"];
-        let msg_group = obj.query["msg"];
+    try {
+        http.createServer(function (request, response) {
+            console.log(request.url);
+            let obj = url.parse(request.url, true);
+            console.log(obj.query);
+            let address = obj.query["address"];
+            let msg_group = obj.query["msg"];
+            let taskId = obj.query["taskId"];
 
-        if (address!=undefined || msg_group!=undefined){
-            if (!(msg_group instanceof Array))
-                msg_group = [msg_group]
-            go(address,msg_group);
-        }
-        response.writeHead(200, {'Content-Type': 'text/plain'});
-        // 发送响应数据 "Hello World"
-	    response.end('Hello World\n');
-    }).listen(port);
-    }catch(err){
+            if (address != undefined || msg_group != undefined || taskId != undefined) {
+                if (!(msg_group instanceof Array))
+                    msg_group = [msg_group]
+                go(taskId, address, msg_group);
+            }
+            response.writeHead(200, { 'Content-Type': 'text/plain' });
+            // 发送响应数据 "Hello World"
+            response.end('Hello World\n');
+        }).listen(port);
+    } catch (err) {
         console.log(err);
     }
     // 终端打印如下信息
     console.log('Monitor running at http://127.0.0.1:8088/');
 }
+
 function parse_cmd() {
-    let args = process.argv.slice(2,process.argv.length);
+    let args = process.argv.slice(2, process.argv.length);
     console.log(args);
-    if (args.length==6){
-        let i=0;
-        while(i<6){
-           if (args[i].indexOf("--gethrpcport")==0){
-            let httpRpcAddr = args[i+1]; 
-            console.log(httpRpcAddr);
-            Provider = new Web3.providers.HttpProvider(httpRpcAddr);
-            web3 = new Web3(Provider);
-            web3.personal.unlockAccount(defaultAccount, "123456", 200 * 60 * 60);
-            web3.personal.unlockAccount(Account1, "123456", 200 * 60 * 60);
-            // console.log(web3);    
-          }
-          if (args[i].indexOf("--account")==0){
-            ACCOUNT = accounts[parseInt(args[i+1])]; 
-          }
-          if (args[i].indexOf("--value")==0){
-            VALUE = parseInt(args[i+1]); 
-          }
-          if (args[i].indexOf("--Agent")==0){
-            BYAGENT = args[i+1]; 
-          }
-          i += 2;
+    if (args.length == 6) {
+        let i = 0;
+        while (i < 6) {
+            if (args[i].indexOf("--gethrpcport") == 0) {
+                let httpRpcAddr = args[i + 1];
+                console.log(httpRpcAddr);
+                Provider = new Web3.providers.HttpProvider(httpRpcAddr);
+                web3 = new Web3(Provider);
+                web3.personal.unlockAccount(defaultAccount, "123456", 200 * 60 * 60);
+                web3.personal.unlockAccount(Account1, "123456", 200 * 60 * 60);
+                // console.log(web3);    
+            }
+            if (args[i].indexOf("--account") == 0) {
+                ACCOUNT = accounts[parseInt(args[i + 1])];
+            }
+            if (args[i].indexOf("--value") == 0) {
+                VALUE = parseInt(args[i + 1]);
+            }
+            if (args[i].indexOf("--Agent") == 0) {
+                BYAGENT = args[i + 1];
+            }
+            i += 2;
         }
-    }else{
+    } else {
         process.exit(-1);
     }
 }
-async function Running(){
+
+async function Running() {
     parse_cmd();
     Agent = await getAgent();
     Owner = getOwner();
     Normal = getNormal();
     RunnerMonitor();
 }
+
 Running();
