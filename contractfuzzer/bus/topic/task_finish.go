@@ -7,14 +7,25 @@ import (
 
 const TASK_FINISH_TOPIC = "task:finish"
 
-type TaskFinishTopic struct {
+type TaskFinishTopic interface {
+	Publish(e event.TaskFinishEvent)
+	Subscribe(fn interface{})
+}
+
+type DefaultTaskFinishTopic struct {
 	eventBus bus.EventBus
 }
 
-func (t TaskFinishTopic) Init(eventBus bus.EventBus) {
+func (t DefaultTaskFinishTopic) Init(eventBus bus.EventBus) DefaultTaskFinishTopic {
 	t.eventBus = eventBus
+
+	return t
 }
 
-func (t TaskFinishTopic) Publish(e event.TaskFinishEvent) {
+func (t DefaultTaskFinishTopic) Publish(e event.TaskFinishEvent) {
 	t.eventBus.Publish(TASK_FINISH_TOPIC, e)
+}
+
+func (t DefaultTaskFinishTopic) Subscribe(fn interface{}) {
+	t.eventBus.Subscribe(TASK_REQUEST_TOPIC, fn)
 }
